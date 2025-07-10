@@ -1,0 +1,1 @@
+response=s&code=001&RT=0&RT_MSG=SUCCESS&user_id=${userId}&session_id=${sessionId}

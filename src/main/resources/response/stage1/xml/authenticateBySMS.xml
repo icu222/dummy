@@ -1,0 +1,6 @@
+<authenticateBySMSResponse>
+    <TRANSACTIONID>${transactionId}</TRANSACTIONID>
+    <SEQUENCENO>4</SEQUENCENO>
+    <return_code>1</return_code>
+    <return_desc>success</return_desc>
+</authenticateBySMSResponse>

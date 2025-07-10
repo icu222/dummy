@@ -1,0 +1,7 @@
+{
+    "resultcode": "0000",
+    "resultmsg": "성공",
+    "userId": "${userId}",
+    "userName": "테스트사용자",
+    "timestamp": "${timestamp}"
+}

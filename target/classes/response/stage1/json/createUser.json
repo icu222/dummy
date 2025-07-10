@@ -1,0 +1,8 @@
+{
+    "svcchannelcode": "13",
+    "reqtypecode": "01",
+    "resultcode": "0000",
+    "resultmsg": "성공",
+    "reqid": "${reqid}",
+    "creationid": "${creationid}"
+}

@@ -1,0 +1,6 @@
+<getVasOfAllSubscpnResponse>
+    <TRANSACTIONID>5b7b38e2-e94d-4f6f-b014-b6e771b9aeb0</TRANSACTIONID>
+    <SEQUENCENO>5</SEQUENCENO>
+    <return_code>3</return_code>
+    <return_desc>Fail - Load Web Id</return_desc>
+</getVasOfAllSubscpnResponse>

@@ -1,0 +1,23 @@
+<soapenv:Envelope xmlns:soapenv="http://schemas.xmlsoap.org/soap/envelope/">
+ <Header xmlns:soap="http://schemas.xmlsoap.org/soap/envelope/" xmlns="http://schemas.xmlsoap.org/soap/envelope/">
+		<biz:commonHeader xmlns:biz="http://bizhub.kt.com">
+			<biz:appName>NBSS_OCT</biz:appName>
+			<biz:svcName>ParingWatchInfoSO</biz:svcName>
+			<biz:fnName>service</biz:fnName>
+			<biz:globalNo>${globalNo}</biz:globalNo>
+			<biz:chnlType>SH</biz:chnlType>
+			<biz:trFlag>R</biz:trFlag>
+			<biz:trDate>${date}</biz:trDate>
+			<biz:trTime>${time}</biz:trTime>
+		</biz:commonHeader>
+	</Header>
+   <soapenv:Body>
+      <biz:signUpForSIMServiceResponse xmlns:biz="http://bizhub.kt.com">
+         <biz:ds_watchResultInfo>
+            <biz:resCd>000</biz:resCd>
+            <biz:resMsg>YES</biz:resMsg>
+            <biz:dscliIccid>testDscliIccid</biz:dscliIccid>
+         </biz:ds_watchResultInfo>
+      </biz:signUpForSIMServiceResponse>
+   </soapenv:Body>
+</soapenv:Envelope>
