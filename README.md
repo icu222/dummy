@@ -87,12 +87,6 @@ curl -X POST http://localhost:9999/api/delay
 - **SLF4J**: 2.0.12
 - **Logback**: 1.4.14
 
-### 코드 개선사항
-- HttpObjectAggregator 추가로 HTTP 요청 완전성 보장
-- XML 파싱 시 XXE 공격 방지 설정 추가
-- OWASP Dependency Check 플러그인 추가
-- Maven 플러그인 최신 버전 업데이트
-
 ## 지원 프로토콜 및 포트
 
 ### A그룹 (TCP Socket + XML)
@@ -190,8 +184,3 @@ jmap -dump:format=b,file=heapdump.hprof $(cat dummy-server.pid)
 ## 개발자 정보
 
 이 프로젝트는 --------------------------------
-
-- 목표 성능: 2500 TPS
-- 지원 프로토콜: HTTP, HTTPS, TCP Socket, XML, JSON, SOAP, &key=value
-- 기술 스택: Java 17, Netty 4.1, Maven
-- 보안: OWASP 보안 가이드라인 준수
