@@ -1,17 +1,30 @@
-# Pure Netty 멀티 프로토콜 더미 서버
+# Dummy Server
 
 ## 프로젝트 개요
+Azure Migration를 위한 Dummy Server입니다.
 
-서비스 A의 클라우드 전환을 위한 고성능 더미 서버입니다. 2500 TPS 처리 능력을 목표로 하는 Pure Netty 기반 멀티 프로토콜 서버입니다.
+## 로직 처리 플로우
 
-## 주요 변경사항 (최신 버전)
+## 지연 응답 기능 사용 법
+```
+# 전역 지연 설정
+curl -X POST "http://localhost:9999/api/delay?enable=true&min=100&max=300"
 
-### 라이브러리 업데이트
-- **Netty**: 4.1.104.Final (취약점 수정)
-- **Jackson**: 2.16.1 (보안 업데이트)
-- **SLF4J**: 2.0.12 (최신 안정 버전)
-- **Logback**: 1.4.14 (최신 안정 버전)
-- **JUnit**: 5.10.2 (최신 테스트 프레임워크)
+# 특정 포트만 설정
+curl -X POST "http://localhost:9999/api/delay?port=8001&enable=true&min=50&max=150"
+
+# 현재 설정 확인
+curl -X POST http://localhost:9999/api/delay
+```
+
+
+
+### 사용 라이브러리
+- **Java**: 17
+- **Netty**: 4.1.104.Final
+- **Jackson**: 2.16.1 
+- **SLF4J**: 2.0.12
+- **Logback**: 1.4.14
 
 ### 코드 개선사항
 - HttpObjectAggregator 추가로 HTTP 요청 완전성 보장
@@ -46,48 +59,6 @@
 - **프로토콜**: HTTP
 - **용도**: 응답 전문 관리, 모니터링
 
-## 빠른 시작
-
-### 1. 보안 스캔 (권장)
-```bash
-# 의존성 취약점 검사
-mvn org.owasp:dependency-check-maven:check
-```
-
-### 2. 빌드
-```bash
-# 기본 빌드
-mvn clean package
-
-# 성능 최적화 빌드
-mvn clean package -Pperformance
-
-# 운영 환경 빌드
-mvn clean package -Pprod
-```
-
-### 3. 샘플 응답 전문 생성
-```bash
-# 실행 권한 부여
-chmod +x create_sample_responses.sh
-
-# 샘플 파일 생성
-./create_sample_responses.sh
-```
-
-### 4. 서버 실행
-```bash
-# 스크립트로 실행
-chmod +x start-server.sh
-./start-server.sh
-
-# 상태 확인
-./status.sh
-
-# 서버 종료
-./stop-server.sh
-```
-
 ## 성능 최적화 JVM 옵션
 
 ```bash
@@ -100,17 +71,6 @@ chmod +x start-server.sh
 -Dio.netty.allocator.numDirectArenas=0 # Direct 메모리 아레나 비활성화
 ```
 
-## 보안 강화 사항
-
-### XML 처리 보안
-- XXE(XML External Entity) 공격 방지
-- DTD 처리 비활성화
-- 외부 엔티티 참조 차단
-
-### 의존성 보안
-- OWASP Dependency Check 통합
-- 취약점 없는 최신 라이브러리 사용
-- 정기적인 보안 스캔 권장
 
 ## 관리 API 사용법
 
@@ -168,7 +128,7 @@ jmap -dump:format=b,file=heapdump.hprof $(cat dummy-server.pid)
 
 ## 개발자 정보
 
-이 프로젝트는 KT 서비스 A 클라우드 전환팀에서 개발되었습니다.
+이 프로젝트는 --------------------------------
 
 - 목표 성능: 2500 TPS
 - 지원 프로토콜: HTTP, HTTPS, TCP Socket, XML, JSON, SOAP, &key=value

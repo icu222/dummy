@@ -2,6 +2,7 @@ package com.kt.dummy.handler;
 
 import com.kt.dummy.manager.ResponseMapManager;
 import com.kt.dummy.processor.DelayResponseProcessor;
+import com.kt.dummy.processor.DelayConfigManager;
 import com.kt.dummy.util.ProtocolUtil;
 import io.netty.buffer.ByteBuf;
 import io.netty.buffer.Unpooled;
@@ -54,10 +55,11 @@ public class XmlProtocolHandler extends SimpleChannelInboundHandler<ByteBuf> {
                 return;
             }
 
-            // 지연 응답 처리
+            // 지연 응답 처리 (동적 지연 적용)
+            long delay = DelayConfigManager.getInstance().getDelayForPort(port);
             DelayResponseProcessor.processWithDelay(ctx, responseContent, (context, content) -> {
                 sendXmlResponse(context, content);
-            });
+            }, delay);
 
         } catch (Exception e) {
             logger.error("XML 처리 중 오류", e);
