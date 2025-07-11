@@ -17,53 +17,54 @@ import org.slf4j.LoggerFactory;
  */
 public class HttpProtocolHandler extends SimpleChannelInboundHandler<FullHttpRequest> {
     private static final Logger logger = LoggerFactory.getLogger(HttpProtocolHandler.class);
-    
+
     @Override
     protected void channelRead0(ChannelHandlerContext ctx, FullHttpRequest request) throws Exception {
         try {
             String uri = request.uri();
             String method = request.method().name();
-            
+
             logger.debug("HTTP 요청: {} {}", method, uri);
-            
+
             // API명 추출 (URI에서)
             String apiName = extractApiNameFromUri(uri);
-            
+
             // Content-Type으로 프로토콜 판별
             String contentType = request.headers().get(HttpHeaderNames.CONTENT_TYPE);
             String protocol = determineProtocolFromContentType(contentType);
-            
-            // 포트로 단계 판별
+
+            // 포트 로깅 (디버깅용)
             int port = ProtocolUtil.getPortFromChannel(ctx.channel());
-            String stage = determineStageFromPort(port);
-            
-            // 응답 전문 조회
+            logger.debug("요청 수신 - 포트: {}, 프로토콜: {}, API: {}", port, protocol, apiName);
+
+            // 응답 전문 조회 (stage 무관)
             String responseContent = ResponseMapManager.getInstance()
-                .getResponse(stage, protocol, apiName);
-            
+                    .getResponse(protocol, apiName);
+
             if (responseContent == null) {
-                logger.warn("응답 전문 없음: stage={}, protocol={}, api={}", stage, protocol, apiName);
-                sendHttpErrorResponse(ctx, HttpResponseStatus.NOT_FOUND, "No response template found");
+                logger.warn("응답 전문 없음: protocol={}, api={}", protocol, apiName);
+                sendHttpErrorResponse(ctx, HttpResponseStatus.NOT_FOUND,
+                        "No response template found for API: " + apiName);
                 return;
             }
-            
+
             // 지연 응답 처리
             DelayResponseProcessor.processWithDelay(ctx, responseContent, (context, content) -> {
                 sendHttpResponse(context, content, protocol);
             });
-            
+
         } catch (Exception e) {
             logger.error("HTTP 처리 중 오류", e);
             sendHttpErrorResponse(ctx, HttpResponseStatus.INTERNAL_SERVER_ERROR, "Internal server error");
         }
     }
-    
+
     private String extractApiNameFromUri(String uri) {
         // URI에서 API명 추출 (예: /api/getUserInfo -> getUserInfo)
         if (uri.startsWith("/")) {
             uri = uri.substring(1);
         }
-        
+
         String[] segments = uri.split("/");
         if (segments.length > 0) {
             String lastSegment = segments[segments.length - 1];
@@ -74,13 +75,13 @@ public class HttpProtocolHandler extends SimpleChannelInboundHandler<FullHttpReq
             }
             return lastSegment;
         }
-        
+
         return "default";
     }
-    
+
     private String determineProtocolFromContentType(String contentType) {
         if (contentType == null) return "json";
-        
+
         contentType = contentType.toLowerCase();
         if (contentType.contains("xml")) {
             if (contentType.contains("soap")) {
@@ -92,47 +93,41 @@ public class HttpProtocolHandler extends SimpleChannelInboundHandler<FullHttpReq
         } else if (contentType.contains("multipart")) {
             return "json"; // multipart는 json으로 처리
         }
-        
+
         return "json"; // 기본값
     }
-    
-    private String determineStageFromPort(int port) {
-        if (port == 80) return "stage1"; // HTTP
-        if (port == 443) return "stage2"; // HTTPS
-        return "stage1";
-    }
-    
+
     private void sendHttpResponse(ChannelHandlerContext ctx, String content, String protocol) {
         String contentType = getContentTypeForProtocol(protocol);
-        
+
         FullHttpResponse response = new DefaultFullHttpResponse(
-            HttpVersion.HTTP_1_1,
-            HttpResponseStatus.OK,
-            Unpooled.copiedBuffer(content, CharsetUtil.UTF_8)
+                HttpVersion.HTTP_1_1,
+                HttpResponseStatus.OK,
+                Unpooled.copiedBuffer(content, CharsetUtil.UTF_8)
         );
-        
+
         response.headers().set(HttpHeaderNames.CONTENT_TYPE, contentType + "; charset=UTF-8");
         response.headers().set(HttpHeaderNames.CONTENT_LENGTH, response.content().readableBytes());
         response.headers().set(HttpHeaderNames.CONNECTION, HttpHeaderValues.KEEP_ALIVE);
-        
+
         ctx.writeAndFlush(response);
     }
-    
+
     private void sendHttpErrorResponse(ChannelHandlerContext ctx, HttpResponseStatus status, String message) {
         String errorJson = "{\"error\":\"" + message + "\",\"status\":" + status.code() + "}";
-        
+
         FullHttpResponse response = new DefaultFullHttpResponse(
-            HttpVersion.HTTP_1_1,
-            status,
-            Unpooled.copiedBuffer(errorJson, CharsetUtil.UTF_8)
+                HttpVersion.HTTP_1_1,
+                status,
+                Unpooled.copiedBuffer(errorJson, CharsetUtil.UTF_8)
         );
-        
+
         response.headers().set(HttpHeaderNames.CONTENT_TYPE, "application/json; charset=UTF-8");
         response.headers().set(HttpHeaderNames.CONTENT_LENGTH, response.content().readableBytes());
-        
+
         ctx.writeAndFlush(response);
     }
-    
+
     private String getContentTypeForProtocol(String protocol) {
         switch (protocol) {
             case "json": return "application/json";
@@ -141,7 +136,7 @@ public class HttpProtocolHandler extends SimpleChannelInboundHandler<FullHttpReq
             default: return "application/json";
         }
     }
-    
+
     @Override
     public void exceptionCaught(ChannelHandlerContext ctx, Throwable cause) {
         logger.error("HTTP 핸들러 예외", cause);

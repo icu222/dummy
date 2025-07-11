@@ -62,103 +62,95 @@ public class ManagementApiHandler extends SimpleChannelInboundHandler<FullHttpRe
                 "{\"error\":\"Method not allowed\",\"allowed\":[\"GET\",\"POST\"]}");
         }
     }
-    
+
     private void createOrUpdateResponse(ChannelHandlerContext ctx, FullHttpRequest request) throws Exception {
         String content = request.content().toString(CharsetUtil.UTF_8);
         JsonNode requestJson = objectMapper.readTree(content);
-        
-        // 필수 필드 검증
-        String stage = getJsonString(requestJson, "stage");
+
         String protocol = getJsonString(requestJson, "protocol");
         String apiName = getJsonString(requestJson, "apiName");
         String responseContent = getJsonString(requestJson, "responseContent");
-        
-        if (stage == null || protocol == null || apiName == null || responseContent == null) {
+
+        if (protocol == null || apiName == null || responseContent == null) {
             sendJsonResponse(ctx, HttpResponseStatus.BAD_REQUEST,
-                "{\"error\":\"Missing required fields\",\"required\":[\"stage\",\"protocol\",\"apiName\",\"responseContent\"]}");
+                    "{\"error\":\"Missing required fields\",\"required\":[\"protocol\",\"apiName\",\"responseContent\"]}");
             return;
         }
-        
+
         // 유효성 검증
-        if (!isValidStage(stage)) {
-            sendJsonResponse(ctx, HttpResponseStatus.BAD_REQUEST,
-                "{\"error\":\"Invalid stage\",\"validStages\":[\"stage1\",\"stage2\",\"stage3\",\"stage4\"]}");
-            return;
-        }
-        
         if (!isValidProtocol(protocol)) {
             sendJsonResponse(ctx, HttpResponseStatus.BAD_REQUEST,
-                "{\"error\":\"Invalid protocol\",\"validProtocols\":[\"json\",\"xml\",\"soap\",\"keyValue\"]}");
+                    "{\"error\":\"Invalid protocol\",\"validProtocols\":[\"json\",\"xml\",\"soap\",\"keyValue\"]}");
             return;
         }
-        
+
         try {
-            // 1. 파일 저장
-            boolean fileSaved = fileLoader.saveResponseFile(stage, protocol, apiName, responseContent);
-            
-            // 2. 메모리 맵 업데이트
-            responseManager.putResponse(stage, protocol, apiName, responseContent);
-            
-            // 3. 응답
+            // 메모리 맵 업데이트
+            responseManager.putResponse(protocol, apiName, responseContent);
+
+            // 응답
             String responseJson = String.format(
-                "{\"success\":true,\"message\":\"Response updated successfully\",\"stage\":\"%s\",\"protocol\":\"%s\",\"apiName\":\"%s\",\"fileSaved\":%s}",
-                stage, protocol, apiName, fileSaved
+                    "{\"success\":true,\"message\":\"Response updated successfully\",\"protocol\":\"%s\",\"apiName\":\"%s\"}",
+                    protocol, apiName
             );
-            
+
             sendJsonResponse(ctx, HttpResponseStatus.OK, responseJson);
-            
+
         } catch (Exception e) {
             logger.error("응답 전문 등록/업데이트 실패", e);
             sendJsonResponse(ctx, HttpResponseStatus.INTERNAL_SERVER_ERROR,
-                "{\"error\":\"Failed to update response\",\"message\":\"" + e.getMessage() + "\"}");
+                    "{\"error\":\"Failed to update response\",\"message\":\"" + e.getMessage() + "\"}");
         }
     }
-    
+
     private void getResponse(ChannelHandlerContext ctx, FullHttpRequest request) throws Exception {
         String uri = request.uri();
-        
-        // 쿼리 파라미터 파싱: /api/response?stage=stage1&protocol=json&apiName=test
+
+        // 쿼리 파라미터 파싱: /api/response?protocol=json&apiName=test
         QueryStringDecoder decoder = new QueryStringDecoder(uri);
         Map<String, String> params = decoder.parameters().entrySet().stream()
-            .collect(java.util.stream.Collectors.toMap(
-                Map.Entry::getKey,
-                entry -> entry.getValue().isEmpty() ? null : entry.getValue().get(0)
-            ));
-        
-        String stage = params.get("stage");
+                .collect(java.util.stream.Collectors.toMap(
+                        Map.Entry::getKey,
+                        entry -> entry.getValue().isEmpty() ? null : entry.getValue().get(0)
+                ));
+
         String protocol = params.get("protocol");
         String apiName = params.get("apiName");
-        
-        if (stage != null && protocol != null && apiName != null) {
+
+        if (protocol != null && apiName != null) {
             // 특정 응답 전문 조회
-            String responseContent = responseManager.getResponse(stage, protocol, apiName);
+            String responseContent = responseManager.getResponse(protocol, apiName);
             if (responseContent != null) {
                 String responseJson = String.format(
-                    "{\"success\":true,\"stage\":\"%s\",\"protocol\":\"%s\",\"apiName\":\"%s\",\"responseContent\":%s}",
-                    stage, protocol, apiName, objectMapper.writeValueAsString(responseContent)
+                        "{\"success\":true,\"protocol\":\"%s\",\"apiName\":\"%s\",\"responseContent\":%s}",
+                        protocol, apiName, objectMapper.writeValueAsString(responseContent)
                 );
                 sendJsonResponse(ctx, HttpResponseStatus.OK, responseJson);
             } else {
                 sendJsonResponse(ctx, HttpResponseStatus.NOT_FOUND,
-                    "{\"error\":\"Response not found\",\"stage\":\"" + stage + "\",\"protocol\":\"" + protocol + "\",\"apiName\":\"" + apiName + "\"}");
+                        "{\"error\":\"Response not found\",\"protocol\":\"" + protocol + "\",\"apiName\":\"" + apiName + "\"}");
             }
-        } else if (stage != null && protocol != null) {
-            // 특정 단계/프로토콜의 모든 응답 조회
-            Map<String, String> responses = responseManager.getAllResponses(stage, protocol);
+        } else if (protocol != null) {
+            // 특정 프로토콜의 모든 응답 조회
+            Map<String, String> responses = responseManager.getAllResponses(protocol);
             String responseJson = objectMapper.writeValueAsString(Map.of(
-                "success", true,
-                "stage", stage,
-                "protocol", protocol,
-                "responses", responses,
-                "count", responses.size()
+                    "success", true,
+                    "protocol", protocol,
+                    "responses", responses,
+                    "count", responses.size()
             ));
             sendJsonResponse(ctx, HttpResponseStatus.OK, responseJson);
         } else {
-            sendJsonResponse(ctx, HttpResponseStatus.BAD_REQUEST,
-                "{\"error\":\"Missing required parameters\",\"required\":[\"stage\",\"protocol\",\"apiName\"]}");
+            // 전체 응답 맵 조회
+            Map<String, Map<String, String>> allResponses = responseManager.getAllResponseMaps();
+            String responseJson = objectMapper.writeValueAsString(Map.of(
+                    "success", true,
+                    "responses", allResponses,
+                    "statistics", responseManager.getStatistics()
+            ));
+            sendJsonResponse(ctx, HttpResponseStatus.OK, responseJson);
         }
     }
-    
     private void handleStatusApi(ChannelHandlerContext ctx, FullHttpRequest request) throws Exception {
         String statusJson = objectMapper.writeValueAsString(Map.of(
             "status", "healthy",

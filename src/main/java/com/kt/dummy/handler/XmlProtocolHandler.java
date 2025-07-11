@@ -17,18 +17,21 @@ import javax.xml.parsers.DocumentBuilderFactory;
 import java.io.StringReader;
 
 /**
+ * 각 요청을 통신/데이터 프로토콜로 분류
+ * 그래서 XML 프로토콜이라고 함.
+ *
  * XML 프로토콜 핸들러 (scap용)
  * @author 고재원
  */
 public class XmlProtocolHandler extends SimpleChannelInboundHandler<ByteBuf> {
     private static final Logger logger = LoggerFactory.getLogger(XmlProtocolHandler.class);
-    
+
     @Override
     protected void channelRead0(ChannelHandlerContext ctx, ByteBuf msg) throws Exception {
         try {
             String receivedXml = msg.toString(CharsetUtil.UTF_8);
             logger.debug("수신 XML: {}", receivedXml);
-            
+
             // API명 추출 (XML 루트 엘리먼트에서)
             String apiName = extractApiNameFromXml(receivedXml);
             if (apiName == null) {
@@ -36,32 +39,32 @@ public class XmlProtocolHandler extends SimpleChannelInboundHandler<ByteBuf> {
                 sendErrorResponse(ctx, "Invalid XML format");
                 return;
             }
-            
-            // 포트 번호로 단계 판별
+
+            // 포트 번호 로깅 (디버깅용)
             int port = ProtocolUtil.getPortFromChannel(ctx.channel());
-            String stage = determineStageFromPort(port);
-            
-            // 응답 전문 조회
+            logger.debug("요청 수신 - 포트: {}, API: {}", port, apiName);
+
+            // 응답 전문 조회 (stage 무관, xml 프로토콜로 고정)
             String responseContent = ResponseMapManager.getInstance()
-                .getResponse(stage, "xml", apiName);
-            
+                    .getResponse("xml", apiName);
+
             if (responseContent == null) {
-                logger.warn("응답 전문 없음: stage={}, protocol=xml, api={}", stage, apiName);
-                sendErrorResponse(ctx, "No response template found");
+                logger.warn("응답 전문 없음: protocol=xml, api={}", apiName);
+                sendErrorResponse(ctx, "No response template found for API: " + apiName);
                 return;
             }
-            
+
             // 지연 응답 처리
             DelayResponseProcessor.processWithDelay(ctx, responseContent, (context, content) -> {
                 sendXmlResponse(context, content);
             });
-            
+
         } catch (Exception e) {
             logger.error("XML 처리 중 오류", e);
             sendErrorResponse(ctx, "Internal server error");
         }
     }
-    
+
     private String extractApiNameFromXml(String xml) {
         try {
             // 간단한 정규식으로 루트 엘리먼트 추출
@@ -79,44 +82,33 @@ public class XmlProtocolHandler extends SimpleChannelInboundHandler<ByteBuf> {
                     return tagName;
                 }
             }
-            
+
             // DOM 파싱 백업 방법
             Document doc = DocumentBuilderFactory.newInstance()
-                .newDocumentBuilder()
-                .parse(new InputSource(new StringReader(xml)));
+                    .newDocumentBuilder()
+                    .parse(new InputSource(new StringReader(xml)));
             return doc.getDocumentElement().getNodeName();
-            
+
         } catch (Exception e) {
             logger.debug("XML 파싱 실패", e);
             return null;
         }
     }
-    
-    private String determineStageFromPort(int port) {
-        // A그룹 포트 매핑
-        switch (port) {
-            case 8001: return "stage1";
-            case 8002: return "stage2";
-            case 8003: return "stage3";
-            case 8004: return "stage4";
-            default: return "stage1";
-        }
-    }
-    
+
     private void sendXmlResponse(ChannelHandlerContext ctx, String content) {
         // 헤더 추가 (기존 코드 패턴 참조)
         String headerLength = String.format("%05d", content.getBytes(CharsetUtil.UTF_8).length + 1);
         String response = "data_length=" + headerLength + "/" + content;
-        
+
         ByteBuf responseBuf = Unpooled.copiedBuffer(response, CharsetUtil.UTF_8);
         ctx.writeAndFlush(responseBuf);
     }
-    
+
     private void sendErrorResponse(ChannelHandlerContext ctx, String errorMsg) {
         String errorXml = "<error><message>" + errorMsg + "</message></error>";
         sendXmlResponse(ctx, errorXml);
     }
-    
+
     @Override
     public void exceptionCaught(ChannelHandlerContext ctx, Throwable cause) {
         logger.error("XML 핸들러 예외", cause);
