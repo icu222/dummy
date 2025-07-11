@@ -3,9 +3,70 @@
 ## 프로젝트 개요
 Azure Migration를 위한 Dummy Server입니다.
 
-## 로직 처리 플로우
+## 메인 로직
+```
+┌──────────────────────────────────────────────┐
+│           FileResponseLoader(응답 전문)       │
+│                                              │
+│  resources/response/                         │
+│    ├── stage1/                               │
+│    │   ├── json/ (*.json)                    │
+│    │   ├── xml/ (*.xml)                      │
+│    │   ├── soap/ (*.xml)                     │
+│    │   └── keyValue/ (*.txt)                 │
+│    ├── stage2/                               │
+│    ├── stage3/                               │
+│    └── stage4/                               │
+└────────────────┬─────────────────────────────┘
+                 │ 초기화 시 로드
+                 ▼
+┌──────────────────────────────────────────────┐
+│           ResponseMapManager                 │
+│                                              │
+│  Map<protocol, Map<apiName, response>>       │
+│                                              │
+└──────────────────────────────────────────────┘
+```
 
-## 지연 응답 기능 사용 법
+## 로직 처리 플로우
+```mermaid
+flowchart TD
+    A[서버 시작<br/>DummyServerApplication.java] --> B[설정 및 초기화<br/>ServerConfig.java<br/>MultiProtocolServer.java]
+    
+    B --> C[응답전문 로드<br/>ResponseMapManager.java<br/>FileResponseLoader.java]
+    
+    C --> C1[(resources/response/<br/>stage1~4/<br/>json/*.json<br/>xml/*.xml<br/>soap/*.xml<br/>keyValue/*.txt)]
+    
+    C --> D[포트별 서버 바인딩<br/>ServerBootstrapFactory.java]
+    
+    D --> D1[TCP: 8001-8004<br/>18000-20000, 10120]
+    D --> D2[HTTP: 80<br/>HTTPS: 443]
+    D --> D3[관리API: 9999]
+    
+    D1 --> E1[요청 수신<br/>CustomLengthFieldDecoder.java]
+    D2 --> E2[요청 수신<br/>HttpServerCodec]
+    
+    E1 --> F1[XmlProtocolHandler.java<br/>KeyValueHandler.java]
+    E2 --> F2[HttpProtocolHandler.java]
+    
+    F1 --> G[API명 추출 및 응답 조회<br/>ProtocolUtil.java<br/>ResponseMapManager.getResponse]
+    F2 --> G
+    
+    G --> H{응답 전문<br/>존재?}
+    
+    H -->|Yes| I[지연 처리<br/>DelayConfigManager.java<br/>DelayResponseProcessor.java]
+    H -->|No| J[에러 응답]
+    
+    I --> K[응답 포맷팅<br/>ResponseFormatter.java]
+    
+    K --> L[비동기 응답 전송<br/>Channel.writeAndFlush<br/>Netty EventLoop]
+    J --> L
+    
+    D3 --> M[ManagementApiHandler.java<br/>/api/response<br/>/api/delay<br/>/api/status<br/>/api/stats]
+```
+
+
+## 지연 응답 기능 사용법
 ```
 # 전역 지연 설정
 curl -X POST "http://localhost:9999/api/delay?enable=true&min=100&max=300"
